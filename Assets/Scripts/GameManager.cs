@@ -7,8 +7,12 @@ public class GameManager : MonoBehaviour
 
     [SerializeField] private Text scoreText;
     [SerializeField] private Text promptText;
+    [SerializeField] private Text statusText;
+    [SerializeField] private Text objectiveText;
 
     public int Score { get; private set; }
+    public int RitualRemains { get; private set; }
+    public int RequiredRemains { get; private set; } = 3;
 
     private void Awake()
     {
@@ -20,6 +24,7 @@ public class GameManager : MonoBehaviour
 
         Instance = this;
         UpdateScoreText();
+        UpdateObjectiveText();
         ShowPrompt(string.Empty);
     }
 
@@ -27,6 +32,34 @@ public class GameManager : MonoBehaviour
     {
         Score += value;
         UpdateScoreText();
+    }
+
+    public void AddRitualRemains(int value)
+    {
+        RitualRemains += value;
+        AddScore(value * 25);
+        UpdateObjectiveText();
+    }
+
+    public bool HasEnoughRemains()
+    {
+        return RitualRemains >= RequiredRemains;
+    }
+
+    public void SetObjective(string text)
+    {
+        if (objectiveText != null)
+            objectiveText.text = text;
+    }
+
+    public void UpdatePlayerStatus(int health, float stamina01, float battery01, bool flashlightOn, bool crouching)
+    {
+        if (statusText == null)
+            return;
+
+        string lightState = flashlightOn ? "on" : "off";
+        string stance = crouching ? "crouch" : "stand";
+        statusText.text = $"HP: {health}/3\nStamina: {Mathf.RoundToInt(stamina01 * 100f)}%\nBattery: {Mathf.RoundToInt(battery01 * 100f)}%\nLight: {lightState}\nStance: {stance}";
     }
 
     public void ShowPrompt(string text)
@@ -42,5 +75,10 @@ public class GameManager : MonoBehaviour
     {
         if (scoreText != null)
             scoreText.text = $"Score: {Score}";
+    }
+
+    private void UpdateObjectiveText()
+    {
+        SetObjective($"Collect remains: {RitualRemains}/{RequiredRemains}\nReach the white altar");
     }
 }
