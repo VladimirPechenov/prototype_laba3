@@ -3,6 +3,8 @@ using Unity.AI.Navigation;
 using UnityEditor;
 using UnityEditor.Events;
 using UnityEditor.SceneManagement;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.SceneManagement;
@@ -12,6 +14,7 @@ using Object = UnityEngine.Object;
 public static class Lab4SceneBuilder
 {
     private const string ScenePath = "Assets/Scenes/SampleScene.unity";
+    private const string MainMenuPath = "Assets/Scenes/MainMenu.unity";
 
     [MenuItem("Tools/Lab 4/Rebuild Cemetery Level")]
     public static void RebuildCemeteryLevel()
@@ -44,19 +47,22 @@ public static class Lab4SceneBuilder
 
         GameObject player = CreatePlayer(playerMaterial);
         CreateFirstPersonCamera(player.transform);
-        CreateUi(player);
+        GameObject winPanel = CreateUi(player);
         CreateEnemies(player.transform, enemyMaterial);
 
         NavMeshSurface surface = level.AddComponent<NavMeshSurface>();
         surface.collectObjects = CollectObjects.Children;
         surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
         surface.BuildNavMesh();
+        CreateGoalTrigger(level.transform, winPanel, ritual);
 
         Selection.activeGameObject = player;
         EditorSceneManager.SaveScene(scene, ScenePath);
+        CreateMainMenuScene();
+        ConfigureBuildSettings();
         AssetDatabase.SaveAssets();
 
-        Debug.Log($"Lab 4 cemetery level rebuilt at {ScenePath}");
+        Debug.Log($"Lab 7 UI prototype rebuilt at {MainMenuPath} and {ScenePath}");
     }
 
     private static void CreateLightingAndFog()
@@ -410,18 +416,20 @@ public static class Lab4SceneBuilder
         cameraObject.AddComponent<FirstPersonCameraLook>();
     }
 
-    private static void CreateUi(GameObject player)
+    private static GameObject CreateUi(GameObject player)
     {
         GameObject managerObject = new("GameManager");
         GameManager manager = managerObject.AddComponent<GameManager>();
         ResourceManager resources = managerObject.AddComponent<ResourceManager>();
         Shop shop = managerObject.AddComponent<Shop>();
+        PauseMenu pauseMenu = managerObject.AddComponent<PauseMenu>();
         SetSerialized(manager, "RequiredRemains", 3);
 
         Canvas canvas = new GameObject("Immersive HUD").AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.gameObject.AddComponent<CanvasScaler>();
         canvas.gameObject.AddComponent<GraphicRaycaster>();
+        CreateEventSystem();
 
         Text scoreText = CreateText(canvas.transform, "ScoreText", "Score: 0", TextAnchor.UpperLeft, new Vector2(18f, -18f), new Vector2(260f, 38f), 20);
         Text coinText = CreateText(canvas.transform, "CoinText", "Coins: 0", TextAnchor.UpperLeft, new Vector2(18f, -48f), new Vector2(260f, 32f), 18);
@@ -437,6 +445,8 @@ public static class Lab4SceneBuilder
         Slider healthSlider = CreateHealthSlider(canvas.transform);
         GameObject gameOverPanel = CreateGameOverPanel(canvas.transform, player.GetComponent<PlayerHealth>());
         GameObject shopPanel = CreateShopPanel(canvas.transform, shop);
+        GameObject pausePanel = CreatePausePanel(canvas.transform, pauseMenu);
+        GameObject winPanel = CreateWinPanel(canvas.transform, pauseMenu);
 
         SetSerialized(manager, "scoreText", scoreText);
         SetSerialized(manager, "promptText", promptText);
@@ -452,6 +462,7 @@ public static class Lab4SceneBuilder
         SetSerialized(shop, "damageButtonText", FindText(shopTexts, "+5 ritual power - 40"));
         SetSerialized(shop, "speedButtonText", FindText(shopTexts, "+0.8 speed - 30"));
         SetSerialized(shop, "statusText", FindText(shopTexts, "Collect coins to buy upgrades"));
+        SetSerialized(pauseMenu, "pausePanel", pausePanel);
 
         PlayerHealth playerHealth = player.GetComponent<PlayerHealth>();
         SetSerialized(playerHealth, "maxHealth", 100);
@@ -461,6 +472,8 @@ public static class Lab4SceneBuilder
 
         PlayerStats playerStats = player.GetComponent<PlayerStats>();
         SetSerialized(playerStats, "statsText", statsText);
+
+        return winPanel;
     }
 
     private static Text FindText(Text[] texts, string value)
@@ -536,8 +549,10 @@ public static class Lab4SceneBuilder
 
         Button restartButton = CreateButton(panel.transform, "RestartButton", "Restart level", new Vector2(0f, 0f));
         Button checkpointButton = CreateButton(panel.transform, "CheckpointButton", "Respawn checkpoint", new Vector2(0f, -56f));
+        Button mainMenuButton = CreateButton(panel.transform, "MainMenuButton", "Main menu", new Vector2(0f, -112f));
         UnityEventTools.AddPersistentListener(restartButton.onClick, playerHealth.RestartLevel);
         UnityEventTools.AddPersistentListener(checkpointButton.onClick, playerHealth.RespawnAtCheckpoint);
+        UnityEventTools.AddPersistentListener(mainMenuButton.onClick, playerHealth.LoadMainMenu);
 
         panel.SetActive(false);
         return panel;
@@ -572,6 +587,132 @@ public static class Lab4SceneBuilder
         status.color = new Color(0.78f, 0.9f, 1f);
 
         return panel;
+    }
+
+    private static GameObject CreatePausePanel(Transform parent, PauseMenu pauseMenu)
+    {
+        GameObject panel = CreateOverlayPanel(parent, "PausePanel", new Color(0f, 0.02f, 0.03f, 0.78f));
+
+        Text title = CreateText(panel.transform, "PauseTitle", "PAUSE", TextAnchor.MiddleCenter, new Vector2(0f, 110f), new Vector2(420f, 60f), 36);
+        title.color = new Color(0.8f, 0.94f, 1f);
+
+        Button resumeButton = CreateButton(panel.transform, "ResumeButton", "Resume", new Vector2(0f, 34f));
+        Button restartButton = CreateButton(panel.transform, "RestartButton", "Restart", new Vector2(0f, -22f));
+        Button mainMenuButton = CreateButton(panel.transform, "MainMenuButton", "Main menu", new Vector2(0f, -78f));
+
+        UnityEventTools.AddPersistentListener(resumeButton.onClick, pauseMenu.Resume);
+        UnityEventTools.AddPersistentListener(restartButton.onClick, pauseMenu.Restart);
+        UnityEventTools.AddPersistentListener(mainMenuButton.onClick, pauseMenu.MainMenu);
+
+        panel.SetActive(false);
+        return panel;
+    }
+
+    private static GameObject CreateWinPanel(Transform parent, PauseMenu pauseMenu)
+    {
+        GameObject panel = CreateOverlayPanel(parent, "WinPanel", new Color(0.02f, 0.04f, 0.03f, 0.84f));
+
+        Text title = CreateText(panel.transform, "WinTitle", "RITUAL COMPLETE", TextAnchor.MiddleCenter, new Vector2(0f, 100f), new Vector2(520f, 60f), 34);
+        title.color = new Color(0.86f, 1f, 0.82f);
+
+        Text body = CreateText(panel.transform, "WinBody", "The white ritual is restored. Escape route opened.", TextAnchor.MiddleCenter, new Vector2(0f, 40f), new Vector2(560f, 42f), 20);
+        body.color = new Color(0.9f, 0.94f, 0.9f);
+
+        Button restartButton = CreateButton(panel.transform, "RestartButton", "Restart", new Vector2(0f, -34f));
+        Button mainMenuButton = CreateButton(panel.transform, "MainMenuButton", "Main menu", new Vector2(0f, -90f));
+
+        UnityEventTools.AddPersistentListener(restartButton.onClick, pauseMenu.Restart);
+        UnityEventTools.AddPersistentListener(mainMenuButton.onClick, pauseMenu.MainMenu);
+
+        panel.SetActive(false);
+        return panel;
+    }
+
+    private static GameObject CreateOverlayPanel(Transform parent, string name, Color color)
+    {
+        GameObject panel = new(name);
+        panel.transform.SetParent(parent, false);
+        Image panelImage = panel.AddComponent<Image>();
+        panelImage.color = color;
+
+        RectTransform rect = panel.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.sizeDelta = Vector2.zero;
+        return panel;
+    }
+
+    private static void CreateGoalTrigger(Transform parent, GameObject winPanel, Material ritual)
+    {
+        GameObject goal = CreateBox("Goal - Ritual Exit Seal", new Vector3(0f, 0.55f, 29.4f), new Vector3(4.2f, 1.1f, 0.28f), ritual, parent);
+        BoxCollider collider = goal.GetComponent<BoxCollider>();
+        collider.isTrigger = true;
+        collider.size = new Vector3(1f, 2.4f, 4f);
+        collider.center = Vector3.up * 0.6f;
+
+        Goal goalScript = goal.AddComponent<Goal>();
+        SetSerialized(goalScript, "winPanel", winPanel);
+    }
+
+    private static void CreateMainMenuScene()
+    {
+        Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+        scene.name = "MainMenu";
+
+        Camera camera = new GameObject("Main Camera").AddComponent<Camera>();
+        camera.tag = "MainCamera";
+        camera.clearFlags = CameraClearFlags.SolidColor;
+        camera.backgroundColor = new Color(0.035f, 0.045f, 0.05f);
+
+        GameObject menuManager = new("MainMenuController");
+        MainMenu mainMenu = menuManager.AddComponent<MainMenu>();
+        SetSerialized(mainMenu, "gameSceneName", "SampleScene");
+
+        Canvas canvas = new GameObject("Main Menu Canvas").AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.gameObject.AddComponent<CanvasScaler>();
+        canvas.gameObject.AddComponent<GraphicRaycaster>();
+        CreateEventSystem();
+
+        GameObject background = new("Background");
+        background.transform.SetParent(canvas.transform, false);
+        Image backgroundImage = background.AddComponent<Image>();
+        backgroundImage.color = new Color(0.025f, 0.034f, 0.035f, 1f);
+        RectTransform backgroundRect = background.GetComponent<RectTransform>();
+        backgroundRect.anchorMin = Vector2.zero;
+        backgroundRect.anchorMax = Vector2.one;
+        backgroundRect.sizeDelta = Vector2.zero;
+
+        Text title = CreateText(canvas.transform, "Title", "WHITE RITUAL", TextAnchor.MiddleCenter, new Vector2(0f, 120f), new Vector2(620f, 74f), 46);
+        title.color = new Color(0.92f, 0.97f, 0.9f);
+        Text subtitle = CreateText(canvas.transform, "Subtitle", "cemetery survival prototype", TextAnchor.MiddleCenter, new Vector2(0f, 64f), new Vector2(520f, 36f), 20);
+        subtitle.color = new Color(0.72f, 0.82f, 0.78f);
+
+        Button startButton = CreateButton(canvas.transform, "StartButton", "Start game", new Vector2(0f, -18f));
+        Button quitButton = CreateButton(canvas.transform, "QuitButton", "Quit", new Vector2(0f, -74f));
+        UnityEventTools.AddPersistentListener(startButton.onClick, mainMenu.StartGame);
+        UnityEventTools.AddPersistentListener(quitButton.onClick, mainMenu.QuitGame);
+
+        EditorSceneManager.SaveScene(scene, MainMenuPath);
+    }
+
+    private static void ConfigureBuildSettings()
+    {
+        EditorBuildSettings.scenes = new[]
+        {
+            new EditorBuildSettingsScene(MainMenuPath, true),
+            new EditorBuildSettingsScene(ScenePath, true),
+        };
+    }
+
+    private static void CreateEventSystem()
+    {
+        if (Object.FindFirstObjectByType<EventSystem>() != null)
+            return;
+
+        GameObject eventSystem = new("EventSystem");
+        eventSystem.AddComponent<EventSystem>();
+        eventSystem.AddComponent<InputSystemUIInputModule>();
     }
 
     private static Button CreateButton(Transform parent, string name, string label, Vector2 position)
