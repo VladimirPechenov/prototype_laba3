@@ -11,12 +11,14 @@ public class Trap : MonoBehaviour
 
     private float lastDamageTime = -999f;
     private Renderer cachedRenderer;
+    private MaterialPropertyBlock propertyBlock;
 
     private void Awake()
     {
         Collider trapCollider = GetComponent<Collider>();
         trapCollider.isTrigger = true;
         cachedRenderer = GetComponent<Renderer>();
+        propertyBlock = new MaterialPropertyBlock();
     }
 
     private void Update()
@@ -25,7 +27,9 @@ public class Trap : MonoBehaviour
             return;
 
         float pulse = (Mathf.Sin(Time.time * 6f) + 1f) * 0.5f;
-        cachedRenderer.material.color = Color.Lerp(safeColor, warningColor, pulse);
+        propertyBlock.SetColor("_BaseColor", Color.Lerp(safeColor, warningColor, pulse));
+        propertyBlock.SetColor("_Color", Color.Lerp(safeColor, warningColor, pulse));
+        cachedRenderer.SetPropertyBlock(propertyBlock);
     }
 
     private void OnTriggerStay(Collider other)

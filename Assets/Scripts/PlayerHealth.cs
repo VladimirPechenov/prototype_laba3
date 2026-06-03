@@ -9,6 +9,7 @@ public class PlayerHealth : MonoBehaviour
     [SerializeField] private Slider healthSlider;
     [SerializeField] private GameObject gameOverPanel;
     [SerializeField] private float invincibilityDuration = 1.5f;
+    [SerializeField] private CameraShake cameraShake;
 
     private int currentHealth;
     private bool isInvincible;
@@ -39,6 +40,7 @@ public class PlayerHealth : MonoBehaviour
 
         currentHealth = Mathf.Max(0, currentHealth - amount);
         UpdateUI();
+        cameraShake?.Shake();
 
         if (currentHealth <= 0)
         {
@@ -77,6 +79,9 @@ public class PlayerHealth : MonoBehaviour
 
     public void RespawnAtCheckpoint()
     {
+        if (SaveSystem.Instance != null && SaveSystem.Instance.LoadCheckpoint())
+            return;
+
         Time.timeScale = 1f;
         isDead = false;
         isInvincible = false;
@@ -87,6 +92,32 @@ public class PlayerHealth : MonoBehaviour
             controller.enabled = false;
 
         transform.position = respawnPoint;
+
+        if (controller != null)
+            controller.enabled = true;
+
+        if (gameOverPanel != null)
+            gameOverPanel.SetActive(false);
+
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+        UpdateUI();
+    }
+
+    public void RestoreState(Vector3 position, int restoredMaxHealth, int restoredCurrentHealth)
+    {
+        Time.timeScale = 1f;
+        isDead = false;
+        isInvincible = false;
+        maxHealth = Mathf.Max(1, restoredMaxHealth);
+        currentHealth = Mathf.Clamp(restoredCurrentHealth, 1, maxHealth);
+        respawnPoint = position;
+
+        CharacterController controller = GetComponent<CharacterController>();
+        if (controller != null)
+            controller.enabled = false;
+
+        transform.position = position;
 
         if (controller != null)
             controller.enabled = true;

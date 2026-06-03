@@ -19,6 +19,10 @@ public class Shop : MonoBehaviour
     private PlayerHealth playerHealth;
     private PlayerStats playerStats;
 
+    public int HealthUpgradeCost => healthUpgradeCost;
+    public int DamageUpgradeCost => damageUpgradeCost;
+    public int SpeedUpgradeCost => speedUpgradeCost;
+
     private void Start()
     {
         playerHealth = FindFirstObjectByType<PlayerHealth>();
@@ -63,6 +67,14 @@ public class Shop : MonoBehaviour
         playerStats?.AddSpeed(0.8f);
         speedUpgradeCost += speedCostStep;
         SetStatus("Movement speed increased");
+        UpdateLabels();
+    }
+
+    public void SetCosts(int healthCost, int damageCost, int speedCost)
+    {
+        healthUpgradeCost = Mathf.Max(0, healthCost);
+        damageUpgradeCost = Mathf.Max(0, damageCost);
+        speedUpgradeCost = Mathf.Max(0, speedCost);
         UpdateLabels();
     }
 

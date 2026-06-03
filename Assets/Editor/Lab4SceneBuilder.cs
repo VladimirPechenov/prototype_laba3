@@ -46,8 +46,8 @@ public static class Lab4SceneBuilder
         BuildZones(level.transform, ground, wall, grave, safe, interact, danger, completedGrave, ritual, healing, coin, keyFragment, blessedRelic);
 
         GameObject player = CreatePlayer(playerMaterial);
-        CreateFirstPersonCamera(player.transform);
-        GameObject winPanel = CreateUi(player);
+        CameraShake cameraShake = CreateFirstPersonCamera(player.transform);
+        GameObject winPanel = CreateUi(player, cameraShake);
         CreateEnemies(player.transform, enemyMaterial);
 
         NavMeshSurface surface = level.AddComponent<NavMeshSurface>();
@@ -62,7 +62,7 @@ public static class Lab4SceneBuilder
         ConfigureBuildSettings();
         AssetDatabase.SaveAssets();
 
-        Debug.Log($"Lab 7 UI prototype rebuilt at {MainMenuPath} and {ScenePath}");
+        Debug.Log($"Lab 8 final prototype rebuilt at {MainMenuPath} and {ScenePath}");
     }
 
     private static void CreateLightingAndFog()
@@ -401,7 +401,7 @@ public static class Lab4SceneBuilder
         return player;
     }
 
-    private static void CreateFirstPersonCamera(Transform player)
+    private static CameraShake CreateFirstPersonCamera(Transform player)
     {
         GameObject cameraObject = new("Main Camera");
         cameraObject.tag = "MainCamera";
@@ -414,15 +414,18 @@ public static class Lab4SceneBuilder
         camera.clearFlags = CameraClearFlags.Skybox;
         cameraObject.AddComponent<AudioListener>();
         cameraObject.AddComponent<FirstPersonCameraLook>();
+        return cameraObject.AddComponent<CameraShake>();
     }
 
-    private static GameObject CreateUi(GameObject player)
+    private static GameObject CreateUi(GameObject player, CameraShake cameraShake)
     {
         GameObject managerObject = new("GameManager");
         GameManager manager = managerObject.AddComponent<GameManager>();
         ResourceManager resources = managerObject.AddComponent<ResourceManager>();
         Shop shop = managerObject.AddComponent<Shop>();
         PauseMenu pauseMenu = managerObject.AddComponent<PauseMenu>();
+        SaveSystem saveSystem = managerObject.AddComponent<SaveSystem>();
+        managerObject.AddComponent<PickupEffectPool>();
         SetSerialized(manager, "RequiredRemains", 3);
 
         Canvas canvas = new GameObject("Immersive HUD").AddComponent<Canvas>();
@@ -455,6 +458,14 @@ public static class Lab4SceneBuilder
         SetSerialized(resources, "coinText", coinText);
         SetSerialized(resources, "keyText", keyText);
         SetSerialized(resources, "feedbackText", feedbackText);
+        SetSerialized(saveSystem, "player", player.transform);
+        SetSerialized(saveSystem, "playerHealth", player.GetComponent<PlayerHealth>());
+        SetSerialized(saveSystem, "resources", resources);
+        SetSerialized(saveSystem, "gameManager", manager);
+        SetSerialized(saveSystem, "playerStats", player.GetComponent<PlayerStats>());
+        SetSerialized(saveSystem, "shop", shop);
+        SetSerialized(saveSystem, "statusText", feedbackText);
+        SetSerialized(saveSystem, "loadSaveOnStart", false);
 
         Text[] shopTexts = shopPanel.GetComponentsInChildren<Text>(true);
         SetSerialized(shop, "shopPanel", shopPanel);
@@ -469,6 +480,7 @@ public static class Lab4SceneBuilder
         SetSerialized(playerHealth, "invincibilityDuration", 1.5f);
         SetSerialized(playerHealth, "healthSlider", healthSlider);
         SetSerialized(playerHealth, "gameOverPanel", gameOverPanel);
+        SetSerialized(playerHealth, "cameraShake", cameraShake);
 
         PlayerStats playerStats = player.GetComponent<PlayerStats>();
         SetSerialized(playerStats, "statsText", statsText);
@@ -593,14 +605,18 @@ public static class Lab4SceneBuilder
     {
         GameObject panel = CreateOverlayPanel(parent, "PausePanel", new Color(0f, 0.02f, 0.03f, 0.78f));
 
-        Text title = CreateText(panel.transform, "PauseTitle", "PAUSE", TextAnchor.MiddleCenter, new Vector2(0f, 110f), new Vector2(420f, 60f), 36);
+        Text title = CreateText(panel.transform, "PauseTitle", "PAUSE", TextAnchor.MiddleCenter, new Vector2(0f, 150f), new Vector2(420f, 60f), 36);
         title.color = new Color(0.8f, 0.94f, 1f);
 
-        Button resumeButton = CreateButton(panel.transform, "ResumeButton", "Resume", new Vector2(0f, 34f));
-        Button restartButton = CreateButton(panel.transform, "RestartButton", "Restart", new Vector2(0f, -22f));
-        Button mainMenuButton = CreateButton(panel.transform, "MainMenuButton", "Main menu", new Vector2(0f, -78f));
+        Button resumeButton = CreateButton(panel.transform, "ResumeButton", "Resume", new Vector2(0f, 74f));
+        Button saveButton = CreateButton(panel.transform, "SaveButton", "Save", new Vector2(0f, 18f));
+        Button loadButton = CreateButton(panel.transform, "LoadButton", "Load", new Vector2(0f, -38f));
+        Button restartButton = CreateButton(panel.transform, "RestartButton", "Restart", new Vector2(0f, -94f));
+        Button mainMenuButton = CreateButton(panel.transform, "MainMenuButton", "Main menu", new Vector2(0f, -150f));
 
         UnityEventTools.AddPersistentListener(resumeButton.onClick, pauseMenu.Resume);
+        UnityEventTools.AddPersistentListener(saveButton.onClick, pauseMenu.SaveGame);
+        UnityEventTools.AddPersistentListener(loadButton.onClick, pauseMenu.LoadGame);
         UnityEventTools.AddPersistentListener(restartButton.onClick, pauseMenu.Restart);
         UnityEventTools.AddPersistentListener(mainMenuButton.onClick, pauseMenu.MainMenu);
 
@@ -703,6 +719,12 @@ public static class Lab4SceneBuilder
             new EditorBuildSettingsScene(MainMenuPath, true),
             new EditorBuildSettingsScene(ScenePath, true),
         };
+
+        PlayerSettings.productName = "White Ritual Prototype";
+        PlayerSettings.companyName = "Student Prototype";
+        PlayerSettings.defaultScreenWidth = 1280;
+        PlayerSettings.defaultScreenHeight = 720;
+        PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
     }
 
     private static void CreateEventSystem()
@@ -935,6 +957,22 @@ public static class Lab4SceneBuilder
         SerializedObject serializedObject = new(target);
         serializedObject.FindProperty(propertyName).stringValue = value;
         serializedObject.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    private static void SetSerialized(Object target, string propertyName, bool value)
+    {
+        SerializedObject serializedObject = new(target);
+        SerializedObjectProperty(serializedObject, propertyName).boolValue = value;
+        serializedObject.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    private static SerializedProperty SerializedObjectProperty(SerializedObject serializedObject, string propertyName)
+    {
+        SerializedProperty property = serializedObject.FindProperty(propertyName);
+        if (property == null)
+            Debug.LogWarning($"Serialized property '{propertyName}' not found on {serializedObject.targetObject.name}");
+
+        return property;
     }
 
     private static void SetSerializedArray(Object target, string propertyName, Transform[] values)

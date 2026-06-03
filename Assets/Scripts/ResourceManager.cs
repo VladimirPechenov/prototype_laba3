@@ -86,7 +86,14 @@ public class ResourceManager : MonoBehaviour
         feedbackRoutine = null;
     }
 
-    private void UpdateUI()
+    public void SetResources(int coins, int keyFragments)
+    {
+        Coins = Mathf.Max(0, coins);
+        KeyFragments = Mathf.Max(0, keyFragments);
+        UpdateUI();
+    }
+
+    public void UpdateUI()
     {
         if (coinText != null)
             coinText.text = $"Coins: {Coins}";

@@ -29,6 +29,13 @@ public class PlayerStats : MonoBehaviour
         UpdateUI();
     }
 
+    public void SetBonuses(float damageBonus, float speedBonus)
+    {
+        DamageBonus = Mathf.Max(0f, damageBonus);
+        SpeedBonus = Mathf.Max(0f, speedBonus);
+        UpdateUI();
+    }
+
     public void SetStatsText(Text text)
     {
         statsText = text;

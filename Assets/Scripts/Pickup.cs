@@ -41,14 +41,17 @@ public class Pickup : MonoBehaviour
         {
             case PickupType.Coins:
                 ResourceManager.Instance?.AddCoins(value, transform.position);
+                PickupEffectPool.Instance?.Play(transform.position, new Color(1f, 0.78f, 0.16f));
                 break;
             case PickupType.KeyFragment:
                 ResourceManager.Instance?.AddKeyFragments(value, transform.position);
+                PickupEffectPool.Instance?.Play(transform.position, new Color(0.55f, 0.85f, 1f));
                 break;
             case PickupType.Healing:
                 other.GetComponent<PlayerHealth>()?.Heal(healAmount);
                 ResourceManager.Instance?.ShowFeedback($"+{healAmount} HP");
                 FeedbackAudio.PlayPickup(transform.position);
+                PickupEffectPool.Instance?.Play(transform.position, new Color(0.1f, 0.75f, 0.35f));
                 break;
         }
 

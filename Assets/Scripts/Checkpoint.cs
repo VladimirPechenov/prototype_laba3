@@ -22,7 +22,9 @@ public class Checkpoint : MonoBehaviour
             return;
 
         activated = true;
-        health.SetRespawnPoint(transform.position + Vector3.up);
+        Vector3 respawnPosition = transform.position + Vector3.up;
+        health.SetRespawnPoint(respawnPosition);
+        SaveSystem.Instance?.SaveCheckpoint(respawnPosition);
         FeedbackAudio.PlayInteract(transform.position);
 
         if (activatedMaterial != null && TryGetComponent(out Renderer renderer))

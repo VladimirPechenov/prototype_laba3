@@ -41,6 +41,14 @@ public class GameManager : MonoBehaviour
         UpdateObjectiveText();
     }
 
+    public void SetProgress(int score, int ritualRemains)
+    {
+        Score = Mathf.Max(0, score);
+        RitualRemains = Mathf.Clamp(ritualRemains, 0, RequiredRemains);
+        UpdateScoreText();
+        UpdateObjectiveText();
+    }
+
     public bool HasEnoughRemains()
     {
         return RitualRemains >= RequiredRemains;
