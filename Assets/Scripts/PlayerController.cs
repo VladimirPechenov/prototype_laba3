@@ -40,6 +40,7 @@ public class PlayerController : MonoBehaviour
     private float battery;
     private float standingHeight;
     private int health;
+    private PlayerHealth playerHealth;
 
     public bool IsGrounded { get; private set; }
     public bool IsCrouching { get; private set; }
@@ -56,6 +57,7 @@ public class PlayerController : MonoBehaviour
         stamina = maxStamina;
         battery = maxBattery;
         health = maxHealth;
+        playerHealth = GetComponent<PlayerHealth>();
     }
 
     private void Start()
@@ -75,7 +77,9 @@ public class PlayerController : MonoBehaviour
         UpdateFlashlight();
         Move();
         ApplyGravityAndJump();
-        GameManager.Instance?.UpdatePlayerStatus(health, Stamina01, Battery01, FlashlightOn, IsCrouching);
+        int displayHealth = playerHealth != null ? playerHealth.CurrentHealth : health;
+        int displayMaxHealth = playerHealth != null ? playerHealth.MaxHealth : maxHealth;
+        GameManager.Instance?.UpdatePlayerStatus(displayHealth, displayMaxHealth, Stamina01, Battery01, FlashlightOn, IsCrouching);
     }
 
     private void UpdateLook()
@@ -156,8 +160,14 @@ public class PlayerController : MonoBehaviour
 
     public void TakeDamage(int amount)
     {
+        if (playerHealth != null)
+        {
+            playerHealth.TakeDamage(amount);
+            return;
+        }
+
         health = Mathf.Max(0, health - amount);
-        GameManager.Instance?.UpdatePlayerStatus(health, Stamina01, Battery01, FlashlightOn, IsCrouching);
+        GameManager.Instance?.UpdatePlayerStatus(health, maxHealth, Stamina01, Battery01, FlashlightOn, IsCrouching);
 
         if (health <= 0)
         {

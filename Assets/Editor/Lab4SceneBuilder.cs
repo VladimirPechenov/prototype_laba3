@@ -29,17 +29,19 @@ public static class Lab4SceneBuilder
         Material enemyMaterial = CreateMaterial("Lab4_Enemy", new Color(0.62f, 0.08f, 0.08f));
         Material completedGrave = CreateMaterial("Lab4_DugGrave", new Color(0.07f, 0.05f, 0.04f));
         Material ritual = CreateMaterial("Lab4_RitualWhite", new Color(0.86f, 0.9f, 0.82f));
+        Material healing = CreateMaterial("Lab5_HealthPickup", new Color(0.1f, 0.75f, 0.35f));
 
         CreateLightingAndFog();
+        EnsureTag("Enemy");
         CreateReusablePrefabs(wall, grave, safe, interact);
 
         GameObject level = new("Level - Old Cemetery Greybox");
         BuildGroundAndBoundaries(level.transform, ground, wall);
-        BuildZones(level.transform, ground, wall, grave, safe, interact, danger, completedGrave, ritual);
+        BuildZones(level.transform, ground, wall, grave, safe, interact, danger, completedGrave, ritual, healing);
 
         GameObject player = CreatePlayer(playerMaterial);
         CreateFirstPersonCamera(player.transform);
-        CreateUi();
+        CreateUi(player);
         CreateEnemies(player.transform, enemyMaterial);
 
         NavMeshSurface surface = level.AddComponent<NavMeshSurface>();
@@ -104,7 +106,7 @@ public static class Lab4SceneBuilder
         CreateBox("Back Cemetery Wall", new Vector3(0f, 1.35f, 31.8f), new Vector3(24f, 2.8f, 0.4f), wall, parent).isStatic = true;
     }
 
-    private static void BuildZones(Transform parent, Material ground, Material wall, Material grave, Material safe, Material interact, Material danger, Material completedGrave, Material ritual)
+    private static void BuildZones(Transform parent, Material ground, Material wall, Material grave, Material safe, Material interact, Material danger, Material completedGrave, Material ritual, Material healing)
     {
         CreateZoneLabel(parent, "Zone 1 - Entrance / Safe movement tutorial", new Vector3(0f, 0.04f, -24f), new Vector3(10f, 0.08f, 9f), safe);
         CreateZoneLabel(parent, "Zone 2 - Graves / digging tutorial", new Vector3(0f, 0.04f, -10f), new Vector3(13f, 0.08f, 12f), ground);
@@ -120,6 +122,7 @@ public static class Lab4SceneBuilder
         CreateStealthObstacles(parent, wall, grave, danger);
         CreateRitualAltar(parent, ritual, interact);
         CreateWayfindingCandles(parent, interact);
+        CreateLab5ThreatsAndRecovery(parent, danger, interact, healing);
     }
 
     private static void CreateZoneLabel(Transform parent, string name, Vector3 position, Vector3 scale, Material material)
@@ -197,12 +200,54 @@ public static class Lab4SceneBuilder
             CreateBox($"Broken Stone Cover {i + 1}", new Vector3(x, 0.75f, z), new Vector3(2.6f, 1.5f, 0.55f), wall, parent);
         }
 
-        CreateBox("Danger Thorn Patch Left", new Vector3(-8f, 0.06f, 13f), new Vector3(2.5f, 0.12f, 4f), danger, parent);
-        CreateBox("Danger Thorn Patch Right", new Vector3(8f, 0.06f, 16f), new Vector3(2.5f, 0.12f, 4f), danger, parent);
+        AddTrap(CreateBox("Trap - Thorn Patch Left", new Vector3(-8f, 0.06f, 13f), new Vector3(2.5f, 0.12f, 4f), danger, parent), 25, 1f);
+        AddTrap(CreateBox("Trap - Thorn Patch Right", new Vector3(8f, 0.06f, 16f), new Vector3(2.5f, 0.12f, 4f), danger, parent), 25, 1f);
 
         CreateBox("Small Mausoleum Blocker", new Vector3(0f, 1.35f, 6f), new Vector3(4.5f, 2.7f, 3f), grave, parent);
         CreateBox("Mausoleum Left Passage Marker", new Vector3(-3.8f, 0.12f, 6f), new Vector3(0.5f, 0.25f, 2.8f), danger, parent).GetComponent<Collider>().enabled = false;
         CreateBox("Mausoleum Right Safer Passage Marker", new Vector3(3.8f, 0.12f, 6f), new Vector3(0.5f, 0.25f, 2.8f), grave, parent).GetComponent<Collider>().enabled = false;
+    }
+
+    private static void CreateLab5ThreatsAndRecovery(Transform parent, Material danger, Material checkpointMaterial, Material healing)
+    {
+        AddTrap(CreateBox("Trap - Ritual Fire Line", new Vector3(0f, 0.08f, 22f), new Vector3(5.2f, 0.16f, 0.7f), danger, parent), 35, 1.2f);
+        AddTrap(CreateBox("Trap - Rusted Grave Spikes", new Vector3(3.2f, 0.22f, -2.5f), new Vector3(1.8f, 0.45f, 1.2f), danger, parent), 20, 0.9f);
+        AddTrap(CreateBox("Trap - Cursed Mud", new Vector3(-3.6f, 0.08f, 14f), new Vector3(2.8f, 0.16f, 2.8f), danger, parent), 15, 0.8f);
+
+        CreateCheckpoint("Checkpoint - Entrance Candle", new Vector3(0f, 0.45f, -21f), checkpointMaterial, parent);
+        CreateCheckpoint("Checkpoint - Chapel Candle", new Vector3(0f, 0.45f, 17.2f), checkpointMaterial, parent);
+
+        CreateHealthPickup("Health Pickup - Old Bandage", new Vector3(5.2f, 0.6f, -13.5f), healing, parent);
+        CreateHealthPickup("Health Pickup - Graveyard Medkit", new Vector3(-6.5f, 0.6f, 18.5f), healing, parent);
+    }
+
+    private static void AddTrap(GameObject trapObject, int damage, float cooldown)
+    {
+        Trap trap = trapObject.AddComponent<Trap>();
+        SetSerialized(trap, "damage", damage);
+        SetSerialized(trap, "cooldown", cooldown);
+    }
+
+    private static void CreateCheckpoint(string name, Vector3 position, Material material, Transform parent)
+    {
+        GameObject checkpoint = CreateBox(name, position, new Vector3(0.7f, 0.9f, 0.7f), material, parent);
+        BoxCollider trigger = checkpoint.AddComponent<BoxCollider>();
+        trigger.isTrigger = true;
+        trigger.size = new Vector3(3.5f, 2f, 3.5f);
+        trigger.center = Vector3.up * 0.8f;
+        Checkpoint checkpointScript = checkpoint.AddComponent<Checkpoint>();
+        SetSerialized(checkpointScript, "activatedMaterial", material);
+    }
+
+    private static void CreateHealthPickup(string name, Vector3 position, Material material, Transform parent)
+    {
+        GameObject pickup = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        pickup.name = name;
+        pickup.transform.SetParent(parent);
+        pickup.transform.position = position;
+        pickup.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
+        pickup.GetComponent<Renderer>().sharedMaterial = material;
+        pickup.AddComponent<HealthPickup>();
     }
 
     private static void CreateRitualAltar(Transform parent, Material ritual, Material interact)
@@ -287,6 +332,7 @@ public static class Lab4SceneBuilder
 
         PlayerController playerController = player.AddComponent<PlayerController>();
         SetSerialized(playerController, "groundCheck", groundCheck.transform);
+        player.AddComponent<PlayerHealth>();
 
         Light flashlight = new GameObject("Player Flashlight").AddComponent<Light>();
         flashlight.transform.SetParent(player.transform);
@@ -317,7 +363,7 @@ public static class Lab4SceneBuilder
         cameraObject.AddComponent<FirstPersonCameraLook>();
     }
 
-    private static void CreateUi()
+    private static void CreateUi(GameObject player)
     {
         GameObject managerObject = new("GameManager");
         GameManager manager = managerObject.AddComponent<GameManager>();
@@ -333,16 +379,114 @@ public static class Lab4SceneBuilder
         Text objectiveText = CreateText(canvas.transform, "ObjectiveText", "Collect remains: 0/3", TextAnchor.UpperRight, new Vector2(-18f, -18f), new Vector2(360f, 70f), 19);
         Text promptText = CreateText(canvas.transform, "PromptText", string.Empty, TextAnchor.LowerCenter, new Vector2(0f, 54f), new Vector2(420f, 46f), 23);
         promptText.enabled = false;
+        Slider healthSlider = CreateHealthSlider(canvas.transform);
+        GameObject gameOverPanel = CreateGameOverPanel(canvas.transform, player.GetComponent<PlayerHealth>());
 
         SetSerialized(manager, "scoreText", scoreText);
         SetSerialized(manager, "promptText", promptText);
         SetSerialized(manager, "statusText", statusText);
         SetSerialized(manager, "objectiveText", objectiveText);
+
+        PlayerHealth playerHealth = player.GetComponent<PlayerHealth>();
+        SetSerialized(playerHealth, "maxHealth", 100);
+        SetSerialized(playerHealth, "invincibilityDuration", 1.5f);
+        SetSerialized(playerHealth, "healthSlider", healthSlider);
+        SetSerialized(playerHealth, "gameOverPanel", gameOverPanel);
+    }
+
+    private static Slider CreateHealthSlider(Transform parent)
+    {
+        GameObject sliderObject = new("HealthSlider");
+        sliderObject.transform.SetParent(parent, false);
+        Slider slider = sliderObject.AddComponent<Slider>();
+        slider.minValue = 0f;
+        slider.maxValue = 1f;
+        slider.value = 1f;
+
+        RectTransform rect = slider.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(0f, 0f);
+        rect.pivot = new Vector2(0f, 0f);
+        rect.anchoredPosition = new Vector2(18f, 156f);
+        rect.sizeDelta = new Vector2(220f, 18f);
+
+        GameObject background = new("Background");
+        background.transform.SetParent(sliderObject.transform, false);
+        Image backgroundImage = background.AddComponent<Image>();
+        backgroundImage.color = new Color(0.12f, 0.02f, 0.02f, 0.85f);
+        RectTransform backgroundRect = background.GetComponent<RectTransform>();
+        backgroundRect.anchorMin = Vector2.zero;
+        backgroundRect.anchorMax = Vector2.one;
+        backgroundRect.sizeDelta = Vector2.zero;
+
+        GameObject fillArea = new("Fill Area");
+        fillArea.transform.SetParent(sliderObject.transform, false);
+        RectTransform fillAreaRect = fillArea.AddComponent<RectTransform>();
+        fillAreaRect.anchorMin = Vector2.zero;
+        fillAreaRect.anchorMax = Vector2.one;
+        fillAreaRect.offsetMin = new Vector2(2f, 2f);
+        fillAreaRect.offsetMax = new Vector2(-2f, -2f);
+
+        GameObject fill = new("Fill");
+        fill.transform.SetParent(fillArea.transform, false);
+        Image fillImage = fill.AddComponent<Image>();
+        fillImage.color = new Color(0.75f, 0.05f, 0.04f, 0.95f);
+        RectTransform fillRect = fill.GetComponent<RectTransform>();
+        fillRect.anchorMin = Vector2.zero;
+        fillRect.anchorMax = Vector2.one;
+        fillRect.sizeDelta = Vector2.zero;
+
+        slider.fillRect = fillRect;
+        return slider;
+    }
+
+    private static GameObject CreateGameOverPanel(Transform parent, PlayerHealth playerHealth)
+    {
+        GameObject panel = new("GameOverPanel");
+        panel.transform.SetParent(parent, false);
+        Image panelImage = panel.AddComponent<Image>();
+        panelImage.color = new Color(0.02f, 0f, 0f, 0.82f);
+        RectTransform panelRect = panel.GetComponent<RectTransform>();
+        panelRect.anchorMin = Vector2.zero;
+        panelRect.anchorMax = Vector2.one;
+        panelRect.sizeDelta = Vector2.zero;
+
+        Text title = CreateText(panel.transform, "GameOverTitle", "GAME OVER", TextAnchor.MiddleCenter, new Vector2(0f, 80f), new Vector2(420f, 60f), 38);
+        title.color = new Color(0.95f, 0.08f, 0.06f);
+
+        Button restartButton = CreateButton(panel.transform, "RestartButton", "Restart level", new Vector2(0f, 0f));
+        Button checkpointButton = CreateButton(panel.transform, "CheckpointButton", "Respawn checkpoint", new Vector2(0f, -56f));
+        UnityEventTools.AddPersistentListener(restartButton.onClick, playerHealth.RestartLevel);
+        UnityEventTools.AddPersistentListener(checkpointButton.onClick, playerHealth.RespawnAtCheckpoint);
+
+        panel.SetActive(false);
+        return panel;
+    }
+
+    private static Button CreateButton(Transform parent, string name, string label, Vector2 position)
+    {
+        GameObject buttonObject = new(name);
+        buttonObject.transform.SetParent(parent, false);
+        Image image = buttonObject.AddComponent<Image>();
+        image.color = new Color(0.18f, 0.18f, 0.18f, 0.95f);
+        Button button = buttonObject.AddComponent<Button>();
+        button.targetGraphic = image;
+
+        RectTransform rect = buttonObject.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = new Vector2(230f, 42f);
+
+        Text text = CreateText(buttonObject.transform, "Text", label, TextAnchor.MiddleCenter, Vector2.zero, new Vector2(220f, 36f), 20);
+        text.color = Color.white;
+        return button;
     }
 
     private static void CreateEnemies(Transform player, Material enemyMaterial)
     {
-        CreateEnemy("Cemetery Watchman", new Vector3(-6f, 1f, 1f), enemyMaterial, player, new[]
+        CreateEnemy("Cemetery Watchman", new Vector3(-6f, 1f, 1f), enemyMaterial, player, true, new[]
         {
             new Vector3(-6f, 0f, -2f),
             new Vector3(-6f, 0f, 9f),
@@ -350,7 +494,7 @@ public static class Lab4SceneBuilder
             new Vector3(5f, 0f, 1f),
         });
 
-        CreateEnemy("Gravedigger Patrol", new Vector3(4f, 1f, 19f), enemyMaterial, player, new[]
+        CreateEnemy("Gravedigger Patrol", new Vector3(4f, 1f, 19f), enemyMaterial, player, false, new[]
         {
             new Vector3(4f, 0f, 18f),
             new Vector3(-4f, 0f, 20f),
@@ -359,10 +503,11 @@ public static class Lab4SceneBuilder
         });
     }
 
-    private static void CreateEnemy(string name, Vector3 position, Material material, Transform player, Vector3[] patrolPositions)
+    private static void CreateEnemy(string name, Vector3 position, Material material, Transform player, bool useBasicEnemyAi, Vector3[] patrolPositions)
     {
         GameObject enemy = GameObject.CreatePrimitive(PrimitiveType.Capsule);
         enemy.name = name;
+        enemy.tag = "Enemy";
         enemy.transform.position = position;
         enemy.GetComponent<Renderer>().sharedMaterial = material;
         NavMeshAgent agent = enemy.AddComponent<NavMeshAgent>();
@@ -377,9 +522,41 @@ public static class Lab4SceneBuilder
             points[i] = point.transform;
         }
 
-        EnemyPatrolAI ai = enemy.AddComponent<EnemyPatrolAI>();
-        SetSerialized(ai, "player", player);
-        SetSerializedArray(ai, "patrolPoints", points);
+        if (useBasicEnemyAi)
+        {
+            EnemyAI ai = enemy.AddComponent<EnemyAI>();
+            SetSerializedArray(ai, "waypoints", points);
+            SetSerialized(ai, "chaseRange", 9f);
+            SetSerialized(ai, "attackRange", 1.8f);
+            SetSerialized(ai, "damage", 20);
+            SetSerialized(ai, "attackCooldown", 1.5f);
+        }
+        else
+        {
+            EnemyPatrolAI ai = enemy.AddComponent<EnemyPatrolAI>();
+            SetSerialized(ai, "player", player);
+            SetSerializedArray(ai, "patrolPoints", points);
+        }
+    }
+
+    private static void EnsureTag(string tag)
+    {
+        Object[] assets = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset");
+        if (assets.Length == 0)
+            return;
+
+        SerializedObject tagManager = new(assets[0]);
+        SerializedProperty tags = tagManager.FindProperty("tags");
+
+        for (int i = 0; i < tags.arraySize; i++)
+        {
+            if (tags.GetArrayElementAtIndex(i).stringValue == tag)
+                return;
+        }
+
+        tags.InsertArrayElementAtIndex(tags.arraySize);
+        tags.GetArrayElementAtIndex(tags.arraySize - 1).stringValue = tag;
+        tagManager.ApplyModifiedPropertiesWithoutUndo();
     }
 
     private static Text CreateText(Transform parent, string name, string value, TextAnchor anchor, Vector2 anchoredPosition, Vector2 size, int fontSize)
@@ -470,6 +647,15 @@ public static class Lab4SceneBuilder
         SerializedProperty property = serializedObject.FindProperty(propertyName);
         if (property != null)
             property.intValue = value;
+        serializedObject.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    private static void SetSerialized(Object target, string propertyName, float value)
+    {
+        SerializedObject serializedObject = new(target);
+        SerializedProperty property = serializedObject.FindProperty(propertyName);
+        if (property != null)
+            property.floatValue = value;
         serializedObject.ApplyModifiedPropertiesWithoutUndo();
     }
 

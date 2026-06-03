@@ -24,6 +24,7 @@ public class EnemyPatrolAI : MonoBehaviour
 
     private NavMeshAgent agent;
     private PlayerController playerController;
+    private PlayerHealth playerHealth;
     private EnemyState state;
     private int patrolIndex;
     private float stateTimer;
@@ -38,7 +39,10 @@ public class EnemyPatrolAI : MonoBehaviour
     private void Start()
     {
         if (player != null)
+        {
             playerController = player.GetComponent<PlayerController>();
+            playerHealth = player.GetComponent<PlayerHealth>();
+        }
 
         GoToNextPatrolPoint();
     }
@@ -119,7 +123,7 @@ public class EnemyPatrolAI : MonoBehaviour
 
         if (Vector3.Distance(transform.position, player.position) < 1.25f && attackCooldown <= 0f)
         {
-            playerController?.TakeDamage(1);
+            playerHealth?.TakeDamage(20);
             attackCooldown = 2f;
         }
 

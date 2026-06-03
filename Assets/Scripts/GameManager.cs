@@ -52,14 +52,14 @@ public class GameManager : MonoBehaviour
             objectiveText.text = text;
     }
 
-    public void UpdatePlayerStatus(int health, float stamina01, float battery01, bool flashlightOn, bool crouching)
+    public void UpdatePlayerStatus(int health, int maxHealth, float stamina01, float battery01, bool flashlightOn, bool crouching)
     {
         if (statusText == null)
             return;
 
         string lightState = flashlightOn ? "on" : "off";
         string stance = crouching ? "crouch" : "stand";
-        statusText.text = $"HP: {health}/3\nStamina: {Mathf.RoundToInt(stamina01 * 100f)}%\nBattery: {Mathf.RoundToInt(battery01 * 100f)}%\nLight: {lightState}\nStance: {stance}";
+        statusText.text = $"HP: {health}/{maxHealth}\nStamina: {Mathf.RoundToInt(stamina01 * 100f)}%\nBattery: {Mathf.RoundToInt(battery01 * 100f)}%\nLight: {lightState}\nStance: {stance}";
     }
 
     public void ShowPrompt(string text)
