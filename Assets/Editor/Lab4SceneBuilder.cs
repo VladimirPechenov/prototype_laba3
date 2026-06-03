@@ -30,6 +30,9 @@ public static class Lab4SceneBuilder
         Material completedGrave = CreateMaterial("Lab4_DugGrave", new Color(0.07f, 0.05f, 0.04f));
         Material ritual = CreateMaterial("Lab4_RitualWhite", new Color(0.86f, 0.9f, 0.82f));
         Material healing = CreateMaterial("Lab5_HealthPickup", new Color(0.1f, 0.75f, 0.35f));
+        Material coin = CreateMaterial("Lab6_Coin", new Color(1f, 0.78f, 0.16f));
+        Material keyFragment = CreateMaterial("Lab6_KeyFragment", new Color(0.55f, 0.85f, 1f));
+        Material blessedRelic = CreateMaterial("Lab6_BlessedRelic", new Color(0.9f, 0.95f, 0.68f));
 
         CreateLightingAndFog();
         EnsureTag("Enemy");
@@ -37,7 +40,7 @@ public static class Lab4SceneBuilder
 
         GameObject level = new("Level - Old Cemetery Greybox");
         BuildGroundAndBoundaries(level.transform, ground, wall);
-        BuildZones(level.transform, ground, wall, grave, safe, interact, danger, completedGrave, ritual, healing);
+        BuildZones(level.transform, ground, wall, grave, safe, interact, danger, completedGrave, ritual, healing, coin, keyFragment, blessedRelic);
 
         GameObject player = CreatePlayer(playerMaterial);
         CreateFirstPersonCamera(player.transform);
@@ -106,7 +109,7 @@ public static class Lab4SceneBuilder
         CreateBox("Back Cemetery Wall", new Vector3(0f, 1.35f, 31.8f), new Vector3(24f, 2.8f, 0.4f), wall, parent).isStatic = true;
     }
 
-    private static void BuildZones(Transform parent, Material ground, Material wall, Material grave, Material safe, Material interact, Material danger, Material completedGrave, Material ritual, Material healing)
+    private static void BuildZones(Transform parent, Material ground, Material wall, Material grave, Material safe, Material interact, Material danger, Material completedGrave, Material ritual, Material healing, Material coin, Material keyFragment, Material blessedRelic)
     {
         CreateZoneLabel(parent, "Zone 1 - Entrance / Safe movement tutorial", new Vector3(0f, 0.04f, -24f), new Vector3(10f, 0.08f, 9f), safe);
         CreateZoneLabel(parent, "Zone 2 - Graves / digging tutorial", new Vector3(0f, 0.04f, -10f), new Vector3(13f, 0.08f, 12f), ground);
@@ -123,6 +126,7 @@ public static class Lab4SceneBuilder
         CreateRitualAltar(parent, ritual, interact);
         CreateWayfindingCandles(parent, interact);
         CreateLab5ThreatsAndRecovery(parent, danger, interact, healing);
+        CreateLab6ProgressionPickups(parent, coin, keyFragment, blessedRelic);
     }
 
     private static void CreateZoneLabel(Transform parent, string name, Vector3 position, Vector3 scale, Material material)
@@ -250,6 +254,48 @@ public static class Lab4SceneBuilder
         pickup.AddComponent<HealthPickup>();
     }
 
+    private static void CreateLab6ProgressionPickups(Transform parent, Material coinMaterial, Material keyMaterial, Material blessedRelicMaterial)
+    {
+        Vector3[] coinPositions =
+        {
+            new(-1.8f, 0.55f, -22.2f),
+            new(1.8f, 0.55f, -22.2f),
+            new(-4.2f, 0.55f, -14.8f),
+            new(3.6f, 0.55f, -11.2f),
+            new(-6.8f, 0.55f, -2.2f),
+            new(6.6f, 0.55f, 1.8f),
+            new(-5.4f, 0.55f, 8.8f),
+            new(5.8f, 0.55f, 12.2f),
+            new(-3.4f, 0.55f, 18.8f),
+            new(3.4f, 0.55f, 20.4f),
+            new(-1.5f, 0.55f, 25.4f),
+            new(1.5f, 0.55f, 25.4f),
+        };
+
+        for (int i = 0; i < coinPositions.Length; i++)
+            CreatePickup($"Memory Coin {i + 1}", coinPositions[i], Vector3.one * 0.38f, coinMaterial, parent, Pickup.PickupType.Coins, i % 4 == 0 ? 15 : 10, 0);
+
+        CreatePickup("White Key Fragment - Grave Row", new Vector3(0f, 0.6f, -6.8f), new Vector3(0.36f, 0.55f, 0.36f), keyMaterial, parent, Pickup.PickupType.KeyFragment, 1, 0);
+        CreatePickup("White Key Fragment - Mausoleum", new Vector3(0f, 0.6f, 6.4f), new Vector3(0.36f, 0.55f, 0.36f), keyMaterial, parent, Pickup.PickupType.KeyFragment, 1, 0);
+        CreatePickup("White Key Fragment - Chapel Yard", new Vector3(0f, 0.6f, 23.8f), new Vector3(0.36f, 0.55f, 0.36f), keyMaterial, parent, Pickup.PickupType.KeyFragment, 1, 0);
+        CreatePickup("Blessed Relic - Emergency Heal", new Vector3(7.2f, 0.6f, 23.5f), Vector3.one * 0.48f, blessedRelicMaterial, parent, Pickup.PickupType.Healing, 0, 25);
+    }
+
+    private static void CreatePickup(string name, Vector3 position, Vector3 scale, Material material, Transform parent, Pickup.PickupType pickupType, int value, int healAmount)
+    {
+        GameObject pickup = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        pickup.name = name;
+        pickup.transform.SetParent(parent);
+        pickup.transform.position = position;
+        pickup.transform.localScale = scale;
+        pickup.GetComponent<Renderer>().sharedMaterial = material;
+
+        Pickup pickupScript = pickup.AddComponent<Pickup>();
+        SetSerialized(pickupScript, "pickupType", (int)pickupType);
+        SetSerialized(pickupScript, "value", value);
+        SetSerialized(pickupScript, "healAmount", healAmount);
+    }
+
     private static void CreateRitualAltar(Transform parent, Material ritual, Material interact)
     {
         GameObject altar = CreateBox("White Ritual Altar", new Vector3(0f, 0.55f, 27f), new Vector3(2.4f, 1.1f, 2.4f), ritual, parent);
@@ -333,6 +379,7 @@ public static class Lab4SceneBuilder
         PlayerController playerController = player.AddComponent<PlayerController>();
         SetSerialized(playerController, "groundCheck", groundCheck.transform);
         player.AddComponent<PlayerHealth>();
+        player.AddComponent<PlayerStats>();
 
         Light flashlight = new GameObject("Player Flashlight").AddComponent<Light>();
         flashlight.transform.SetParent(player.transform);
@@ -367,6 +414,8 @@ public static class Lab4SceneBuilder
     {
         GameObject managerObject = new("GameManager");
         GameManager manager = managerObject.AddComponent<GameManager>();
+        ResourceManager resources = managerObject.AddComponent<ResourceManager>();
+        Shop shop = managerObject.AddComponent<Shop>();
         SetSerialized(manager, "RequiredRemains", 3);
 
         Canvas canvas = new GameObject("Immersive HUD").AddComponent<Canvas>();
@@ -375,23 +424,54 @@ public static class Lab4SceneBuilder
         canvas.gameObject.AddComponent<GraphicRaycaster>();
 
         Text scoreText = CreateText(canvas.transform, "ScoreText", "Score: 0", TextAnchor.UpperLeft, new Vector2(18f, -18f), new Vector2(260f, 38f), 20);
+        Text coinText = CreateText(canvas.transform, "CoinText", "Coins: 0", TextAnchor.UpperLeft, new Vector2(18f, -48f), new Vector2(260f, 32f), 18);
+        Text keyText = CreateText(canvas.transform, "KeyFragmentText", "Key fragments: 0/3", TextAnchor.UpperLeft, new Vector2(18f, -76f), new Vector2(270f, 32f), 18);
+        CreateText(canvas.transform, "ShopHintText", "Upgrades: B", TextAnchor.UpperLeft, new Vector2(18f, -104f), new Vector2(270f, 32f), 17);
         Text statusText = CreateText(canvas.transform, "StatusText", "HP: 3/3", TextAnchor.LowerLeft, new Vector2(18f, 18f), new Vector2(260f, 130f), 18);
+        Text statsText = CreateText(canvas.transform, "StatsText", "Ritual power: 10", TextAnchor.UpperRight, new Vector2(-18f, -96f), new Vector2(360f, 60f), 17);
         Text objectiveText = CreateText(canvas.transform, "ObjectiveText", "Collect remains: 0/3", TextAnchor.UpperRight, new Vector2(-18f, -18f), new Vector2(360f, 70f), 19);
         Text promptText = CreateText(canvas.transform, "PromptText", string.Empty, TextAnchor.LowerCenter, new Vector2(0f, 54f), new Vector2(420f, 46f), 23);
+        Text feedbackText = CreateText(canvas.transform, "ResourceFeedbackText", string.Empty, TextAnchor.UpperLeft, new Vector2(18f, -134f), new Vector2(300f, 36f), 20);
         promptText.enabled = false;
+        feedbackText.enabled = false;
         Slider healthSlider = CreateHealthSlider(canvas.transform);
         GameObject gameOverPanel = CreateGameOverPanel(canvas.transform, player.GetComponent<PlayerHealth>());
+        GameObject shopPanel = CreateShopPanel(canvas.transform, shop);
 
         SetSerialized(manager, "scoreText", scoreText);
         SetSerialized(manager, "promptText", promptText);
         SetSerialized(manager, "statusText", statusText);
         SetSerialized(manager, "objectiveText", objectiveText);
+        SetSerialized(resources, "coinText", coinText);
+        SetSerialized(resources, "keyText", keyText);
+        SetSerialized(resources, "feedbackText", feedbackText);
+
+        Text[] shopTexts = shopPanel.GetComponentsInChildren<Text>(true);
+        SetSerialized(shop, "shopPanel", shopPanel);
+        SetSerialized(shop, "healthButtonText", FindText(shopTexts, "+20 max HP - 50"));
+        SetSerialized(shop, "damageButtonText", FindText(shopTexts, "+5 ritual power - 40"));
+        SetSerialized(shop, "speedButtonText", FindText(shopTexts, "+0.8 speed - 30"));
+        SetSerialized(shop, "statusText", FindText(shopTexts, "Collect coins to buy upgrades"));
 
         PlayerHealth playerHealth = player.GetComponent<PlayerHealth>();
         SetSerialized(playerHealth, "maxHealth", 100);
         SetSerialized(playerHealth, "invincibilityDuration", 1.5f);
         SetSerialized(playerHealth, "healthSlider", healthSlider);
         SetSerialized(playerHealth, "gameOverPanel", gameOverPanel);
+
+        PlayerStats playerStats = player.GetComponent<PlayerStats>();
+        SetSerialized(playerStats, "statsText", statsText);
+    }
+
+    private static Text FindText(Text[] texts, string value)
+    {
+        foreach (Text text in texts)
+        {
+            if (text.text == value)
+                return text;
+        }
+
+        return null;
     }
 
     private static Slider CreateHealthSlider(Transform parent)
@@ -460,6 +540,37 @@ public static class Lab4SceneBuilder
         UnityEventTools.AddPersistentListener(checkpointButton.onClick, playerHealth.RespawnAtCheckpoint);
 
         panel.SetActive(false);
+        return panel;
+    }
+
+    private static GameObject CreateShopPanel(Transform parent, Shop shop)
+    {
+        GameObject panel = new("ShopPanel");
+        panel.transform.SetParent(parent, false);
+        Image panelImage = panel.AddComponent<Image>();
+        panelImage.color = new Color(0.04f, 0.045f, 0.05f, 0.92f);
+
+        RectTransform rect = panel.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(1f, 0.5f);
+        rect.anchorMax = new Vector2(1f, 0.5f);
+        rect.pivot = new Vector2(1f, 0.5f);
+        rect.anchoredPosition = new Vector2(-18f, 0f);
+        rect.sizeDelta = new Vector2(340f, 270f);
+
+        Text title = CreateText(panel.transform, "ShopTitle", "Upgrade Shop", TextAnchor.UpperLeft, new Vector2(18f, -16f), new Vector2(300f, 34f), 24);
+        title.color = new Color(1f, 0.82f, 0.32f);
+
+        Button healthButton = CreateButton(panel.transform, "HealthUpgradeButton", "+20 max HP - 50", new Vector2(0f, 54f));
+        Button damageButton = CreateButton(panel.transform, "DamageUpgradeButton", "+5 ritual power - 40", new Vector2(0f, 4f));
+        Button speedButton = CreateButton(panel.transform, "SpeedUpgradeButton", "+0.8 speed - 30", new Vector2(0f, -46f));
+
+        UnityEventTools.AddPersistentListener(healthButton.onClick, shop.BuyHealthUpgrade);
+        UnityEventTools.AddPersistentListener(damageButton.onClick, shop.BuyDamageUpgrade);
+        UnityEventTools.AddPersistentListener(speedButton.onClick, shop.BuySpeedUpgrade);
+
+        Text status = CreateText(panel.transform, "ShopStatusText", "Collect coins to buy upgrades", TextAnchor.LowerCenter, new Vector2(0f, 14f), new Vector2(300f, 34f), 15);
+        status.color = new Color(0.78f, 0.9f, 1f);
+
         return panel;
     }
 
@@ -592,11 +703,23 @@ public static class Lab4SceneBuilder
             rect.anchorMax = new Vector2(0f, 0f);
             rect.pivot = new Vector2(0f, 0f);
         }
-        else
+        else if (anchor == TextAnchor.MiddleCenter)
+        {
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+        }
+        else if (anchor == TextAnchor.LowerCenter)
         {
             rect.anchorMin = new Vector2(0.5f, 0f);
             rect.anchorMax = new Vector2(0.5f, 0f);
             rect.pivot = new Vector2(0.5f, 0f);
+        }
+        else
+        {
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
         }
 
         Outline outline = textObject.AddComponent<Outline>();

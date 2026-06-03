@@ -58,6 +58,18 @@ public class PlayerHealth : MonoBehaviour
         UpdateUI();
     }
 
+    public void IncreaseMaxHealth(int amount, bool healByIncrease)
+    {
+        maxHealth += amount;
+
+        if (healByIncrease)
+            currentHealth = Mathf.Min(maxHealth, currentHealth + amount);
+        else
+            currentHealth = Mathf.Min(currentHealth, maxHealth);
+
+        UpdateUI();
+    }
+
     public void SetRespawnPoint(Vector3 point)
     {
         respawnPoint = point;

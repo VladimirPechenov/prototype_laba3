@@ -41,6 +41,7 @@ public class PlayerController : MonoBehaviour
     private float standingHeight;
     private int health;
     private PlayerHealth playerHealth;
+    private PlayerStats playerStats;
 
     public bool IsGrounded { get; private set; }
     public bool IsCrouching { get; private set; }
@@ -58,6 +59,7 @@ public class PlayerController : MonoBehaviour
         battery = maxBattery;
         health = maxHealth;
         playerHealth = GetComponent<PlayerHealth>();
+        playerStats = GetComponent<PlayerStats>();
     }
 
     private void Start()
@@ -127,6 +129,9 @@ public class PlayerController : MonoBehaviour
         bool wantsRun = Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed && !IsCrouching;
         bool isRunning = wantsRun && stamina > 0f && hasMoveInput;
         float speed = IsCrouching ? crouchSpeed : isRunning ? runSpeed : walkSpeed;
+        if (playerStats != null)
+            speed += playerStats.TotalSpeedBonus;
+
         float control = IsGrounded ? 1f : airControl;
 
         controller.height = Mathf.Lerp(controller.height, IsCrouching ? standingHeight * 0.55f : standingHeight, 12f * Time.deltaTime);
